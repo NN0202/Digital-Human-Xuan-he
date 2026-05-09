@@ -251,10 +251,14 @@
 
       // 获取或生成唯一的 User ID
       function getCurrentUserId() {
-        let userId = localStorage.getItem('nfc_user_id');
+        let userId = localStorage.getItem("nfc_user_id");
         if (!userId) {
-          userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-          localStorage.setItem('nfc_user_id', userId);
+          userId =
+            "user_" +
+            Math.random().toString(36).substr(2, 9) +
+            "_" +
+            Date.now();
+          localStorage.setItem("nfc_user_id", userId);
         }
         return userId;
       }
@@ -262,7 +266,9 @@
       // 获取 topic_trigger (最长消息的前20个字)
       function getTopicTrigger(messages) {
         if (!messages.length) return "无文本";
-        const longest = messages.reduce((a, b) => (a.length >= b.length ? a : b));
+        const longest = messages.reduce((a, b) =>
+          a.length >= b.length ? a : b,
+        );
         return longest.substring(0, 20);
       }
 
@@ -276,29 +282,34 @@
       // 发送埋点数据到 Google Apps Script
       function endSessionAndSendLog() {
         if (logSent || !sessionStartTime) return;
-        
+
         const logData = {
           user_id: getCurrentUserId(),
           role_engaged: "篾青", // 当前角色
           intent_phase: getIntentPhase(messageCount),
           topic_trigger: getTopicTrigger(userMessages),
           user_region: navigator.language || "unknown",
-          conversation_duration: Math.floor((Date.now() - sessionStartTime) / 1000), // 秒
+          conversation_duration: Math.floor(
+            (Date.now() - sessionStartTime) / 1000,
+          ), // 秒
           product_clicked: false, // 当前无商品链接
-          converted: false
+          converted: false,
         };
 
-        const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycby3HxWTflvLt95bvfVUjIvzyPOYUI3U-kCPBqpkCmGT1is6RYvKIe8SsCXt9PtNHTR0/exec";
+        const GOOGLE_API_URL =
+          "https://script.google.com/macros/s/AKfycbweAid75E0emydRd0Vvtndo0AtolMRnW69NB9BRtxc9yC7wkevVKjAtqGgs6D0kGHtt/exec";
 
         fetch(GOOGLE_API_URL, {
-          method: 'POST',
-          mode: 'no-cors', // 重要：避免跨域问题
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(logData)
-        }).then(() => {
-          logSent = true;
-          console.log("Session log sent.");
-        }).catch(err => console.error("Error sending log:", err));
+          method: "POST",
+          mode: "no-cors", // 重要：避免跨域问题
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(logData),
+        })
+          .then(() => {
+            logSent = true;
+            console.log("Session log sent.");
+          })
+          .catch((err) => console.error("Error sending log:", err));
       }
 
       // 重置不活跃计时器 (60秒不活跃自动发送)
@@ -308,9 +319,9 @@
       }
 
       // 页面关闭时发送
-      window.addEventListener('beforeunload', endSessionAndSendLog);
+      window.addEventListener("beforeunload", endSessionAndSendLog);
       // 兼容移动端切入后台
-      window.addEventListener('pagehide', endSessionAndSendLog);
+      window.addEventListener("pagehide", endSessionAndSendLog);
 
       // 切换到聊天界面
       startBtn.addEventListener("click", () => {
