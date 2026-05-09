@@ -22,10 +22,16 @@ export default async function handler(req, res) {
       body: JSON.stringify({ app_id: appId, app_secret: appSecret }) 
     }); 
     const tokenData = await tokenRes.json(); 
+     
+    if (tokenData.code !== 0) { 
+      console.error('获取飞书 token 失败:', tokenData); 
+      return res.status(500).json({ success: false, error: '获取飞书凭证失败', detail: tokenData }); 
+    } 
+
     const accessToken = tokenData.tenant_access_token; 
 
     // 4. 使用令牌将前端发来的数据安全写入飞书表格 
-    const logRes = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`, { 
+    const writeRes = await fetch(`https://open.feishu.cn/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`, { 
       method: 'POST', 
       headers: { 
         'Authorization': `Bearer ${accessToken}`, 
@@ -44,12 +50,20 @@ export default async function handler(req, res) {
         } 
       }) 
     }); 
-    const logData = await logRes.json(); 
+    const writeData = await writeRes.json(); 
+
+    // 打印完整返回，便于调试（在 Vercel Functions 日志中查看） 
+    console.log('飞书写入返回:', JSON.stringify(writeData)); 
+
+    if (writeData.code !== 0) { 
+      console.error('飞书写入失败:', writeData); 
+      return res.status(500).json({ success: false, error: '飞书表格写入失败', detail: writeData }); 
+    } 
 
     // 5. 把结果返回给前端 
-    res.status(200).json({ success: true, data: logData }); 
+    res.status(200).json({ success: true, data: writeData.data }); 
   } catch (error) { 
-    console.error(error); 
+    console.error('服务器错误:', error); 
     res.status(500).json({ success: false, error: error.message }); 
   } 
 }
