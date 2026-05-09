@@ -244,6 +244,73 @@
       const sendBtn = document.getElementById("send-btn");
 
       let messageCount = 0;
+      let userMessages = []; // 保存用户发送的所有消息，用于计算 topic_trigger
+      let sessionStartTime = null; // 记录对话开始时间
+      let inactivityTimer = null; // 不活跃计时器
+      let logSent = false; // 标记是否已发送日志，避免重复发送
+
+      // 获取或生成唯一的 User ID
+      function getCurrentUserId() {
+        let userId = localStorage.getItem('nfc_user_id');
+        if (!userId) {
+          userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+          localStorage.setItem('nfc_user_id', userId);
+        }
+        return userId;
+      }
+
+      // 获取 topic_trigger (最长消息的前20个字)
+      function getTopicTrigger(messages) {
+        if (!messages.length) return "无文本";
+        const longest = messages.reduce((a, b) => (a.length >= b.length ? a : b));
+        return longest.substring(0, 20);
+      }
+
+      // 根据对话轮数推测意图阶段
+      function getIntentPhase(msgCount) {
+        if (msgCount === 0) return "流失 (0轮)";
+        if (msgCount <= 3) return "初探 (1-3轮)";
+        return "深度交流 (>3轮)";
+      }
+
+      // 发送埋点数据到 Google Apps Script
+      function endSessionAndSendLog() {
+        if (logSent || !sessionStartTime) return;
+        
+        const logData = {
+          user_id: getCurrentUserId(),
+          role_engaged: "篾青", // 当前角色
+          intent_phase: getIntentPhase(messageCount),
+          topic_trigger: getTopicTrigger(userMessages),
+          user_region: navigator.language || "unknown",
+          conversation_duration: Math.floor((Date.now() - sessionStartTime) / 1000), // 秒
+          product_clicked: false, // 当前无商品链接
+          converted: false
+        };
+
+        const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycby3HxWTflvLt95bvfVUjIvzyPOYUI3U-kCPBqpkCmGT1is6RYvKIe8SsCXt9PtNHTR0/exec";
+
+        fetch(GOOGLE_API_URL, {
+          method: 'POST',
+          mode: 'no-cors', // 重要：避免跨域问题
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logData)
+        }).then(() => {
+          logSent = true;
+          console.log("Session log sent.");
+        }).catch(err => console.error("Error sending log:", err));
+      }
+
+      // 重置不活跃计时器 (60秒不活跃自动发送)
+      function resetTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(endSessionAndSendLog, 60000);
+      }
+
+      // 页面关闭时发送
+      window.addEventListener('beforeunload', endSessionAndSendLog);
+      // 兼容移动端切入后台
+      window.addEventListener('pagehide', endSessionAndSendLog);
 
       // 切换到聊天界面
       startBtn.addEventListener("click", () => {
@@ -251,6 +318,8 @@
         setTimeout(() => {
           welcomeScreen.style.display = "none";
           mainUI.style.display = "flex";
+          sessionStartTime = Date.now(); // 记录开始时间
+          resetTimer(); // 启动计时器
         }, 1000);
       });
 
@@ -261,8 +330,10 @@
 
         // 添加用户消息
         appendMessage(text, "user");
+        userMessages.push(text); // 记录消息用于分析
         userInput.value = "";
         messageCount++;
+        resetTimer(); // 用户操作，重置计时器
 
         // 模拟 AI 思考 (实际会调用 API)
         const loadingMsg = appendMessage("...", "ai", true);
