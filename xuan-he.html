@@ -279,11 +279,6 @@
       const headerSubtitle = document.getElementById("header-subtitle");
       const initialMessage = document.getElementById("initial-message");
 
-      let messageCount = 0;
-      let userMessages = [];
-      let sessionStartTime = null;
-      let inactivityTimer = null;
-      let logSent = false;
       let currentLang = localStorage.getItem("nfc_language") || "zh";
 
       const translations = {
@@ -373,7 +368,7 @@ Dialogue rules:
         userInput.placeholder = copy.inputPlaceholder;
         langToggleBtn.textContent = currentLang === "zh" ? "EN" : "中文";
 
-        if (chatContainer.children.length === 1 && userMessages.length === 0) {
+        if (chatContainer.children.length === 1) {
           initialMessage.textContent = copy.initialMessage;
         }
       }
@@ -384,88 +379,11 @@ Dialogue rules:
         applyLanguage();
       }
 
-      function getCurrentUserId() {
-        let userId = localStorage.getItem("nfc_user_id");
-        if (!userId) {
-          userId =
-            "user_" +
-            Math.random().toString(36).substr(2, 9) +
-            "_" +
-            Date.now();
-          localStorage.setItem("nfc_user_id", userId);
-        }
-        return userId;
-      }
-
-      function getTopicTrigger(messages) {
-        if (!messages.length) return "无文本";
-        const longest = messages.reduce((a, b) =>
-          a.length >= b.length ? a : b,
-        );
-        return longest.substring(0, 20);
-      }
-
-      function getIntentPhase(msgCount) {
-        if (msgCount === 0) return "流失 (0轮)";
-        if (msgCount <= 3) return "初探 (1-3轮)";
-        return "深度交流 (>3轮)";
-      }
-
-      async function sendToFeishuBitable(logData) {
-        const url = "/api/log-conversation";
-        try {
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(logData),
-          });
-          const result = await response.json();
-          if (result.success) {
-            console.log("✅ 对话日志写入成功!", result.data);
-          } else {
-            console.error("❌ 写入失败:", result.error);
-          }
-        } catch (error) {
-          console.error("❌ 请求失败:", error);
-        }
-      }
-
-      function endSessionAndSendLog() {
-        if (logSent || !sessionStartTime) return;
-
-        const logData = {
-          user_id: getCurrentUserId(),
-          role_engaged: "玄和",
-          intent_phase: getIntentPhase(messageCount),
-          topic_trigger: getTopicTrigger(userMessages),
-          user_region: navigator.language || "unknown",
-          conversation_duration: Math.floor(
-            (Date.now() - sessionStartTime) / 1000,
-          ),
-          product_clicked: false,
-          converted: false,
-        };
-
-        sendToFeishuBitable(logData).then(() => {
-          logSent = true;
-        });
-      }
-
-      function resetTimer() {
-        clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(endSessionAndSendLog, 10000);
-      }
-
-      window.addEventListener("beforeunload", endSessionAndSendLog);
-      window.addEventListener("pagehide", endSessionAndSendLog);
-
       startBtn.addEventListener("click", () => {
         welcomeScreen.style.opacity = "0";
         setTimeout(() => {
           welcomeScreen.style.display = "none";
           mainUI.style.display = "flex";
-          sessionStartTime = Date.now();
-          resetTimer();
         }, 1000);
       });
 
@@ -474,10 +392,7 @@ Dialogue rules:
         if (!text) return;
 
         appendMessage(text, "user");
-        userMessages.push(text);
         userInput.value = "";
-        messageCount++;
-        resetTimer();
 
         const loadingMsg = appendMessage("...", "ai", true);
 
